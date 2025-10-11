@@ -1,38 +1,66 @@
-import React, {useState} from 'react'
+import React, {useContext, useState} from 'react'
 import AuthLayout from '../../components/layouts/AuthLayout'
 import { Link } from 'react-router-dom'
-import Input from '../../components/layouts/Inputs/Input'
-import { vadidateEmail, validatePassword } from '../../utils/helper'
-import ProfilePhotoSelector from '../../components/layouts/Inputs/ProfilePhotoSelector'
-
+import Input from '../../components/Inputs/Input'
+import { validateEmail, validatePassword } from '../../utils/helper'
+import ProfilePhotoSelector from '../../components/Inputs/ProfilePhotoSelector'
+import axiosInstance from '../../utils/axiosInstance'
+import { API_PATHS } from '../../utils/apiPaths'
+import { UserContext } from '../../context/UserContext'
+import { useNavigate } from 'react-router-dom'
 const SignUp = () => {
   const [profilePic, setProfilePic] = useState(null)
   const [fullName, setFullName] = useState()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-
+  const navigate = useNavigate()
   const [error, setError] = useState('')
+
+  const {updateUser} = useContext(UserContext);
 
   // Handle Sign Up Form Submit
   const handleSignUp = async(e)=>{
     e.preventDefault()
 
-      let profilePicUrl = "";
-      if(!fullName){
-        setError("Please enter your full name");
-        return;
-      }
-      if(!vadidateEmail(email)){
-        setError('Please enter a valid email address.');
-        return;
-      }
-      if(validatePassword(password)){
-        setError(validatePassword(password));
-        return;
-      }
-    
-      setError("")
+    if(!fullName){
+      setError("Please enter your full name");
+      return;
+    }
+    if(!validateEmail(email)){
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if(validatePassword(password)){
+      setError(validatePassword(password));
+      return;
+    }
+  
+    setError("")
+
+    // SignUp API Call
+  try {
+    console.log(fullName, email, password);
+    const response = await axiosInstance.post(API_PATHS.AUTH.REGISTER, {
+      fullName,
+      email,
+      password,
+    });
+
+    const { token, user } = response.data;
+    console.log(user);
+    if (token) {
+      localStorage.setItem("token", token);
+      updateUser(user);
+      navigate("/dashboard");
+    }
+  } catch (error) {
+    if (error.response && error.response.data.message) {
+      setError(error.response.data.message);
+    } else {
+      setError("Something went wrong. Please try again.");
+    }
   }
+}
   return (
     <AuthLayout>
       <div className = "lg:w-[100%] h-auto md:h-full mt-10 md:mt-0 flex flex-col justify-center">

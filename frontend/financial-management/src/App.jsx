@@ -5,10 +5,12 @@ import Home from './pages/Dashboard/Home'
 import Login from './pages/Auth/Login'
 import Income from './pages/Dashboard/Income'
 import Expense from './pages/Dashboard/Expense'
-
+import UserProvider from './context/UserContext'
+import "@fortawesome/fontawesome-free/css/all.min.css";
+ 
 function App() {
   return (
-    <>
+    <UserProvider>
       <div>
         <Router>
           <Routes>
@@ -21,7 +23,7 @@ function App() {
           </Routes>
         </Router>
       </div>
-    </>
+    </UserProvider>
   )
 }
 
