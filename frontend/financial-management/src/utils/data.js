@@ -21,6 +21,6 @@ export const SIDE_MENU_DATA = [
     id: "06",
     label: "Logout",
     icon: "fa-solid fa-right-from-bracket",
-    path: "/logout",
+    path: "logout",
   },
 ];
