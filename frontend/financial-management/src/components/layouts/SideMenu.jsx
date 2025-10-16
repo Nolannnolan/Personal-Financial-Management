@@ -37,8 +37,7 @@ const SideMenu = ({activeMenu}) => {
         <i className={`${item.icon} text-xl`} ></i>
         {item.label}
       </button>
-    ))}
-    helloooo
+    ))}                                           
   </div>
 )
 

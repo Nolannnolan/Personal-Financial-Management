@@ -31,4 +31,4 @@ export const useUserAuth = () => {
             isMounted = false;
         };
     }, [updateUser, clearUser, navigate]);
-};
+};                                                                                          
