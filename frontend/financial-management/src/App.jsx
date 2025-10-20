@@ -7,7 +7,8 @@ import Income from './pages/Dashboard/Income'
 import Expense from './pages/Dashboard/Expense'
 import UserProvider from './context/UserContext'
 import "@fortawesome/fontawesome-free/css/all.min.css";
- 
+import {Toaster} from "react-hot-toast"
+
 function App() {
   return (
     <UserProvider>
@@ -23,6 +24,15 @@ function App() {
           </Routes>
         </Router>
       </div>
+
+      <Toaster
+        toastOptions={{
+          className: "",
+          style: {
+            fontSize: "13px"
+          }
+        }}
+      />
     </UserProvider>
   )
 }

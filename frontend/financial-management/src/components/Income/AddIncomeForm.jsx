@@ -13,13 +13,14 @@ const AddIncomeForm = ({onAddIncome}) => {
     const handleChange = (key, value) => setIncome({...income, [key]: value})
   return (
     <div>
-        <EmojiPickerPopup
-            icon = {income.icon}
-            onSelect={(selectedIcon) => handleChange("icon", selectedIcon)}
-        />
+      <EmojiPickerPopup
+          icon = {income.icon}
+          onSelect={(selectedIcon) => handleChange("icon", selectedIcon)}
+      />
+
       <Input
         value={income.source}
-        onchange={({target}) => handleChange("source", target.value)}
+        onChange={({target}) => handleChange("source", target.value)}
         label="Income Source"
         placeholder="Freelance, Salary, ect"
         type="text"
@@ -27,7 +28,7 @@ const AddIncomeForm = ({onAddIncome}) => {
 
       <Input 
         value={income.amount}
-        onchange={({target}) => handleChange("amount", target.value)}
+        onChange={({target}) => handleChange("amount", target.value)}
         label="Amount"
         placeholder=""
         type="number"
@@ -35,7 +36,7 @@ const AddIncomeForm = ({onAddIncome}) => {
 
       <Input
         value={income.date}
-        onchange={({target}) => handleChange("date", target.value)}
+        onChange={({target}) => handleChange("date", target.value)}
         label="Date"
         placeholder=""
         type="date"
