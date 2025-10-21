@@ -33,7 +33,7 @@ const TransactionInfoCard = ({
                 onClick={onDelete}>
                     <i class="fa-solid fa-trash-can size-[18px]"></i>
                 </button>
-                )}
+            )}
 
             <div className = {`flex items-center gap-2 px-3 py-1.5 rounded-md ${getAmountStyles()}`}>
                 <h6 className = "text-xs font-medium">

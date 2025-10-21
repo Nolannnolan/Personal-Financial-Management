@@ -6,7 +6,6 @@ const IncomeOverview = ({transactions, onAddIncome}) => {
     const [chatData, setChatData] = useState([])
     useEffect(()=>{
         const result = prepareIncomeChartData(transactions)
-        console.log(result)
         setChatData(result)
 
         return () =>{}

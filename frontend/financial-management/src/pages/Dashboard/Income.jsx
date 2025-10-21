@@ -8,9 +8,11 @@ import AddIncomeForm from '../../components/Income/AddIncomeForm'
 import toast from 'react-hot-toast'
 import IncomeList from '../../components/Income/IncomeList'
 import DeleteAlert from '../../components/DeleteAlert'
+import { useUserAuth } from '../../hooks/useUserAuth'
 
 const Income = () => {
 
+  useUserAuth();
   const [incomeData, setIncomeData] = useState([])
   const [openAddIncomeModal, setOpenAddIncomeModal] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -30,7 +32,6 @@ const Income = () => {
       const response = await axiosInstance.get(`${API_PATHS.INCOME.GET_ALL_INCOME}`)
       if (response.data){
         setIncomeData(response.data);
-        console.log("Income data", response.data);
       }  
     } catch (error) {
       console.log("Someting went wrong. Please try again later.", error);
