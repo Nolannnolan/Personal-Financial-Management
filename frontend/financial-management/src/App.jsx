@@ -5,6 +5,7 @@ import Home from './pages/Dashboard/Home'
 import Login from './pages/Auth/Login'
 import Income from './pages/Dashboard/Income'
 import Expense from './pages/Dashboard/Expense'
+import News from './pages/Dashboard/News'
 import UserProvider from './context/UserContext'
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import {Toaster} from "react-hot-toast"
@@ -20,6 +21,7 @@ function App() {
             <Route path='/signUp' element={<SignUp />} />
             <Route path='/income' element={<Income />} />
             <Route path='/expense' element={<Expense />} />
+            <Route path='/news' element={<News />} />
             <Route path='/dashboard' element={<Home />} />
           </Routes>
         </Router>
