@@ -8,6 +8,7 @@ const incomeRoutes = require("./routes/incomeRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const newsRoutes = require("./routes/newsRoutes");
+const tickerRoutes = require("./routes/newsDashboardRoutes");
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use("/api/v1/income", incomeRoutes);
 app.use("/api/v1/expense", expenseRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/news", newsRoutes);
+app.use("/api/v1/ticker", tickerRoutes);
 
 
 // Server uploads folder
