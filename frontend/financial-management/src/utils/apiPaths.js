@@ -27,5 +27,8 @@ export const API_PATHS = {
   },
   NEWS: {
     GET_NEWS: "/api/v1/news",
+  },
+  TICKER: {
+    GET_TICKER_BAR: "/api/v1/ticker/get-bar"
   }
 };
