@@ -30,5 +30,11 @@ export const API_PATHS = {
   },
   TICKER: {
     GET_TICKER_BAR: "/api/v1/ticker/get-bar"
+  },
+  WATCHLIST: {
+    GET: "/api/v1/watchlist",
+    ADD: "/api/v1/watchlist/add",
+    STAR: "/api/v1/watchlist/star",
+    REMOVE: symbol => `/api/v1/watchlist/remove/${symbol}`
   }
 };

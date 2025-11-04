@@ -7,7 +7,7 @@ import Income from './pages/Dashboard/Income'
 import Expense from './pages/Dashboard/Expense'
 import News from './pages/Dashboard/News'
 import UserProvider from './context/UserContext'
-import News from './pages/Dashboard/News'
+//import News from './pages/Dashboard/News'
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import {Toaster} from "react-hot-toast"
 

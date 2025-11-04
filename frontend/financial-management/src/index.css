@@ -59,3 +59,64 @@
 .scroll-thin::-webkit-scrollbar-thumb {
   @apply bg-gray-300 rounded-full hover:bg-gray-400 transition-colors duration-200;
 }
+
+/* Ticker animations */
+@keyframes scroll-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-scroll-space-x {
+  animation: scroll-left 30s linear infinite;
+}
+
+.ticker-container:hover .animate-scroll-space-x {
+  animation-play-state: paused;
+}
+
+.ticker-content {
+  display: inline-flex;
+  width: fit-content;
+}
+
+/* Slide-in animation for table rows */
+@keyframes slide-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out forwards;
+}
+
+/* News card hover effects */
+.news-card-hover:hover {
+  transform: translateY(-2px);
+}
+
+.news-card-hover:hover .news-card-image {
+  transform: scale(1.05);
+}
+
+.news-card-hover:hover .news-card-background {
+  background-color: #f8f9ff;
+}
+
+/* Price change animations */
+.price-up-animation {
+  transition: color 0.5s ease-out;
+}
+
+.price-down-animation {
+  transition: color 0.5s ease-out;
+}

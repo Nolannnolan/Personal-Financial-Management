@@ -9,6 +9,7 @@ const expenseRoutes = require("./routes/expenseRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const newsRoutes = require("./routes/newsRoutes");
 const tickerRoutes = require("./routes/newsDashboardRoutes");
+const watchlistRoutes = require("./routes/watchlistRoutes");
 
 const app = express();
 
@@ -16,7 +17,7 @@ const app = express();
 app.use(
     cors({
         origin: process.env.CLIENT_URL || "*",
-        methods: ["GET", "POST", "PUT", "DELETE"],
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
         allowedHeaders: ["Content-Type", "Authorization"]
     })
 );
@@ -31,6 +32,7 @@ app.use("/api/v1/expense", expenseRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/news", newsRoutes);
 app.use("/api/v1/ticker", tickerRoutes);
+app.use("/api/v1/watchlist", watchlistRoutes);
 
 
 // Server uploads folder
