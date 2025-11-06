@@ -22,6 +22,64 @@ logger = logging.getLogger(__name__)
 
 PLACEHOLDER_PATTERN = re.compile(r"\{\{\s*([A-Z0-9_]+)\s*\}\}")
 
+# Global cache for tool vector index (shared across all agent instances)
+_GLOBAL_TOOL_INDEX_CACHE = {"index": None, "building": False, "error": None}
+
+
+def build_and_cache_tool_index(force_rebuild: bool = False) -> Optional[Any]:
+    """
+    Build tool vector index and cache it globally for reuse across all agent instances.
+    Thread-safe singleton pattern.
+    
+    Args:
+        force_rebuild: Force rebuild even if cache exists
+        
+    Returns:
+        The cached tool index or None if build failed
+    """
+    global _GLOBAL_TOOL_INDEX_CACHE
+    
+    # Return cached index if available
+    if not force_rebuild and _GLOBAL_TOOL_INDEX_CACHE["index"] is not None:
+        logger.debug("Using cached tool vector index")
+        return _GLOBAL_TOOL_INDEX_CACHE["index"]
+    
+    # If another thread is building, wait for it
+    if _GLOBAL_TOOL_INDEX_CACHE["building"]:
+        logger.debug("Tool index is being built by another thread, waiting...")
+        import time
+        for _ in range(50):  # Wait up to 5 seconds
+            time.sleep(0.1)
+            if _GLOBAL_TOOL_INDEX_CACHE["index"] is not None:
+                return _GLOBAL_TOOL_INDEX_CACHE["index"]
+        logger.warning("Timeout waiting for tool index build")
+        return None
+    
+    # Mark as building
+    _GLOBAL_TOOL_INDEX_CACHE["building"] = True
+    _GLOBAL_TOOL_INDEX_CACHE["error"] = None
+    
+    try:
+        logger.info("Building tool vector index (this may take a few seconds on first run)...")
+        index = build_tool_vector_index_from_registry(registry)
+        _GLOBAL_TOOL_INDEX_CACHE["index"] = index
+        _GLOBAL_TOOL_INDEX_CACHE["building"] = False
+        logger.info("Tool vector index built and cached successfully")
+        return index
+    except Exception as e:
+        logger.warning("Failed to build tool vector index: %s. Continuing with heuristic-only search.", e)
+        _GLOBAL_TOOL_INDEX_CACHE["error"] = str(e)
+        _GLOBAL_TOOL_INDEX_CACHE["building"] = False
+        return None
+
+
+def get_cached_tool_index() -> Optional[Any]:
+    """
+    Get the cached tool index without building it.
+    Returns None if not yet built.
+    """
+    return _GLOBAL_TOOL_INDEX_CACHE.get("index")
+
 
 def topo_sort_subquestions(subquestions: List[Dict]) -> List[Dict]:
     id_map = {sq["id"]: sq for sq in subquestions}
@@ -211,12 +269,15 @@ class FinancialAgent:
         configure_logging(verbose)
         self.gemini = GeminiWrapper(model=model, enable_history=False)  # We manage history at agent level
         self.registry = registry
-        self._tool_index = None  # Lazy loaded
+        
+        # Use global cached index instead of per-instance index
+        # This significantly speeds up first query across all agent instances
         self.lazy_load = lazy_load
         
         # Build tool index immediately if not lazy loading
+        # Otherwise, it will be built on first use (shared globally)
         if not lazy_load:
-            self._build_tool_index()
+            build_and_cache_tool_index()
         
         # Conversation history for this agent instance
         self.conversation_history: List[Dict[str, str]] = []
@@ -224,21 +285,19 @@ class FinancialAgent:
         # Callback for tool execution events
         self.tool_callback = None
     
-    def _build_tool_index(self):
-        """Build tool index on demand"""
-        if self._tool_index is None:
-            try:
-                self._tool_index = build_tool_vector_index_from_registry(self.registry)
-            except Exception as e:
-                logger.warning("Failed to build tool vector index: %s. Continuing without index.", e)
-                self._tool_index = False  # Mark as failed
-    
     @property
     def tool_index(self):
-        """Lazy load tool index when first accessed"""
-        if self._tool_index is None and self.lazy_load:
-            self._build_tool_index()
-        return self._tool_index if self._tool_index else None
+        """
+        Get the cached tool index (shared across all agent instances).
+        On first access, triggers build if not yet built (lazy_load=True).
+        """
+        cached = get_cached_tool_index()
+        
+        # If not cached yet and lazy loading is enabled, build now
+        if cached is None and self.lazy_load:
+            cached = build_and_cache_tool_index()
+        
+        return cached
 
     def _clean_json_str(self, raw: str) -> str:
         """Loại bỏ code fence ```json ... ``` nếu có."""
@@ -371,11 +430,18 @@ class FinancialAgent:
                 tools.insert(0, technical.func)
 
         # Chart / Graph / Visualization
-        if any(word in q for word in ["biểu đồ", "chart", "graph", "vẽ", "draw", "plot", "visualize", 
-                                       "biến động giá", "price movement", "price chart", "lịch sử giá"]):
-            chart = self.registry.get("generate_stock_price_chart")
-            if chart and chart.func not in tools:
-                tools.insert(0, chart.func)
+        # if any(word in q for word in ["biểu đồ", "chart", "graph", "vẽ", "draw", "plot", "visualize", 
+        #                                "biến động giá", "price movement", "price chart", "lịch sử giá"]):
+        #     # Check for candlestick chart specifically
+        #     if any(word in q for word in ["nến", "candlestick", "candle", "ohlc", "japanese candlestick"]):
+        #         candlestick = self.registry.get("generate_candlestick_chart")
+        #         if candlestick and candlestick.func not in tools:
+        #             tools.insert(0, candlestick.func)
+        #     else:
+        #         # Default to line chart
+        #         chart = self.registry.get("generate_stock_price_chart")
+        #         if chart and chart.func not in tools:
+        #             tools.insert(0, chart.func)
         
         # Price / Stock price
         if any(word in q for word in ["giá", "price", "stock price", "giá cổ phiếu", "thị giá"]):
@@ -530,6 +596,14 @@ class FinancialAgent:
                             "tool_name": chosen_name,
                             "result": extracted
                         })
+                    
+                    # # Filter out base64 data before sending to LLM (too large, causes timeouts)
+                    # extracted_for_llm = {k: v for k, v in extracted.items() if k != "chart_base64"}
+                    # if "chart_base64" in extracted:
+                    #     # Add indicator that chart was generated
+                    #     extracted_for_llm["chart_generated"] = True
+                    #     extracted_for_llm["chart_type"] = extracted.get("chart_type", "unknown")
+                    
                     # give the LLM the tool output for finalization / commentary
                     follow_msgs = msgs + [
                         {
@@ -574,6 +648,21 @@ class FinancialAgent:
                 context_str += f"Previous Q: {exchange['user_query']}\n"
                 context_str += f"Previous A: {exchange['assistant_response'][:200]}...\n\n"
         
+        # # Clean up subquestions data before sending to LLM - remove base64 data
+        # cleaned_subquestions = []
+        # for ans in answered_by_id.values():
+        #     cleaned_ans = ans.copy()
+        #     if isinstance(cleaned_ans.get("extracted_data"), dict):
+        #         # Remove base64 chart data but keep other info
+        #         if "chart_base64" in cleaned_ans["extracted_data"]:
+        #             cleaned_ans["extracted_data"] = {
+        #                 k: v for k, v in cleaned_ans["extracted_data"].items()
+        #                 if k != "chart_base64"
+        #             }
+        #             # Add note that chart was generated
+        #             cleaned_ans["extracted_data"]["chart_generated"] = True
+        #     cleaned_subquestions.append(cleaned_ans)
+        
         final_prompt = (
             FINAL_ANSWER_PROMPT
             + context_str
@@ -599,10 +688,27 @@ class FinancialAgent:
         if len(self.conversation_history) > 10:
             self.conversation_history = self.conversation_history[-10:]
         
+        # # Extract any charts/images from tool results
+        # charts = []
+        # for ans in answered_by_id.values():
+        #     extracted = ans.get("extracted_data", {})
+        #     if isinstance(extracted, dict):
+        #         # Check for chart_base64 in the extracted data
+        #         if "chart_base64" in extracted and extracted["chart_base64"]:
+        #             charts.append({
+        #                 "type": extracted.get("chart_type", "chart"),
+        #                 "data": extracted["chart_base64"],
+        #                 "ticker": extracted.get("ticker", ""),
+        #                 "period": extracted.get("period", ""),
+        #                 "statistics": extracted.get("statistics", {}),
+        #                 "tool": ans.get("used_tools", ["unknown"])[0] if ans.get("used_tools") else "unknown"
+        #             })
+        
         return {
             "report": final_text, 
             "answered_subquestions": list(answered_by_id.values()),
-            "subquestions": subs_raw  # Include original subquestions for debugging
+            "subquestions": subs_raw,  # Include original subquestions for debugging
+            # "charts": charts  # Include any generated charts
         }
     
     def get_conversation_history(self) -> List[Dict[str, Any]]:

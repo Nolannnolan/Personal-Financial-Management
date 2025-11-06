@@ -3,6 +3,7 @@ import io
 import uuid
 import json
 import asyncio
+import threading
 from typing import Dict, Optional, AsyncGenerator
 from datetime import datetime
 
@@ -15,9 +16,22 @@ from openai import OpenAI
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
 
-from finance_agent.agent import FinancialAgent
+from finance_agent.agent import FinancialAgent, build_and_cache_tool_index
 
 app = FastAPI(title="Financial Chatbot API")
+
+# Pre-warm tool index on startup in background thread
+def pre_warm_tool_index():
+    """Pre-build tool vector index in background to speed up first user query"""
+    print("🔥 Pre-warming tool vector index in background...")
+    try:
+        build_and_cache_tool_index()
+        print("✅ Tool vector index pre-warmed successfully!")
+    except Exception as e:
+        print(f"⚠️ Failed to pre-warm tool index: {e}")
+
+# Start pre-warming in background thread immediately
+threading.Thread(target=pre_warm_tool_index, daemon=True).start()
 
 app.add_middleware(
     CORSMiddleware,
@@ -328,9 +342,33 @@ async def delete_session(session_id: str):
 
 @app.get("/api/health")
 async def health_check():
+    from finance_agent.agent import _GLOBAL_TOOL_INDEX_CACHE
+    
+    tool_index_status = "ready" if _GLOBAL_TOOL_INDEX_CACHE["index"] is not None else (
+        "building" if _GLOBAL_TOOL_INDEX_CACHE["building"] else "not_built"
+    )
+    
     return {
         "status": "healthy",
         "active_sessions": len(sessions),
+        "tool_index_status": tool_index_status,
+        "tool_index_error": _GLOBAL_TOOL_INDEX_CACHE.get("error"),
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+@app.get("/api/cache/status")
+async def cache_status():
+    """Get the status of the global tool index cache"""
+    from finance_agent.agent import _GLOBAL_TOOL_INDEX_CACHE
+    
+    return {
+        "tool_index_cached": _GLOBAL_TOOL_INDEX_CACHE["index"] is not None,
+        "building": _GLOBAL_TOOL_INDEX_CACHE["building"],
+        "error": _GLOBAL_TOOL_INDEX_CACHE.get("error"),
+        "status": "ready" if _GLOBAL_TOOL_INDEX_CACHE["index"] is not None else (
+            "building" if _GLOBAL_TOOL_INDEX_CACHE["building"] else "not_built"
+        ),
         "timestamp": datetime.now().isoformat()
     }
 

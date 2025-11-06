@@ -94,6 +94,7 @@ from .tools.ratios import calculate_ratios
 from .tools.stock_price import get_stock_price
 from .tools.stock_symbol import get_stock_symbol
 from .tools.stock_price_chart import generate_stock_price_chart  # New combined tool
+from .tools.candlestick_chart import generate_candlestick_chart  # Candlestick chart tool
 
 # New tools - Phase 1
 from .tools.technical_indicators import get_technical_indicators
@@ -147,6 +148,12 @@ registry.register(
     description="Generate a stock price chart with historical data for a given ticker. Automatically fetches historical prices and creates a chart. Use period like '1d', '5d', '1mo', '3mo', '6mo', '1y' to specify time range. Perfect for visualizing price movements.",
     func=generate_stock_price_chart,
 )
+
+# registry.register(
+#     name="generate_candlestick_chart",
+#     description="Generate a candlestick chart (biểu đồ nến Nhật) for stock with volume and moving averages. Perfect for technical analysis, shows open/high/low/close prices as candles. Returns base64 encoded PNG image. Use when user asks for candlestick chart, biểu đồ nến, or detailed price action analysis.",
+#     func=generate_candlestick_chart,
+# )
 
 registry.register(
     name="get_fundamentals",
