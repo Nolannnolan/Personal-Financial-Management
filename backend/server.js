@@ -10,6 +10,9 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const newsRoutes = require("./routes/newsRoutes");
 const tickerRoutes = require("./routes/newsDashboardRoutes");
 const watchlistRoutes = require("./routes/watchlistRoutes");
+const financeRoutes = require("./routes/financeRoutes");
+const { startBinanceStream } = require("./streams/binanceStream");
+const assetsRoutes = require('./routes/assetsRoutes');
 
 const app = express();
 
@@ -33,6 +36,8 @@ app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/news", newsRoutes);
 app.use("/api/v1/ticker", tickerRoutes);
 app.use("/api/v1/watchlist", watchlistRoutes);
+app.use("/api/v1/finance", financeRoutes);
+app.use('/api/v1/assets', assetsRoutes);
 
 
 // Server uploads folder
@@ -40,4 +45,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+
+    // Start Binance stream after server up
+    try {
+      startBinanceStream();
+    } catch (err) {
+      console.error('Failed to start Binance stream:', err);
+    }
 });
