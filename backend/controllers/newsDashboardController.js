@@ -1,146 +1,106 @@
-const axios = require("axios");
-const {shouldConvertToVND, getExchangeRateToVND } = require("../helper");
+const pool = require('../config/pg');
+const redis = require('../config/redis');
+const { calculatePriceChange } = require('../services/calculatePriceChange');
 require("dotenv").config();
 
 let cache = { data: null, timestamp: 0 };
-const CACHE_DURATION = 60 * 1000; // cache 1 phút
+const CACHE_DURATION = 30 * 1000; // cache 30 seconds (giảm từ 60s để real-time hơn)
 
 exports.getTickerBar = async (req, res) => {
   try {
-    // Dùng cache để tránh gọi API liên tục
+    // 1️⃣ Check memory cache first
     if (cache.data && Date.now() - cache.timestamp < CACHE_DURATION) {
       return res.json(cache.data);
     }
 
-    // Yahoo Finance (dùng rapidapi hoặc free public proxy)
-    const yahooSymbols = {
-      // Chỉ số thị trường
-      "^VNINDEX.VN": "VN-Index",
-      "^DJI": "Dow Jones",
-      "^GSPC": "S&P 500",
-      "^IXIC": "NASDAQ",
-      "^N225": "Nikkei 225",
-      "^FTSE": "FTSE 100",
-      "^GDAXI": "DAX 40",
-      "^FCHI": "CAC 40",
-      "^HSI": "Hang Seng",
-      "000001.SS": "Shanghai",
-      "^KS11": "KOSPI",
+    // 2️⃣ Try Redis cache
+    const redisCache = await redis.get('ticker:bar:all').catch(() => null);
+    if (redisCache) {
+      const parsedCache = JSON.parse(redisCache);
+      cache = { data: parsedCache, timestamp: Date.now() };
+      return res.json(parsedCache);
+    }
+
+    // 3️⃣ Define symbols to display (configurable)
+    const displaySymbols = [
+      // Crypto (from Binance stream - real-time data)
+      'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT',
       
-
-      // Tỷ giá ngoại tệ theo VND
-      "USDVND=X": "USD/VND",
-      "EURVND=X": "EUR/VND",
-      "JPYVND=X": "JPY/VND",
-
-      // Cặp tiền quốc tế
-      "EURUSD=X": "EUR/USD",
-      "USDJPY=X": "USD/JPY",
-      "GBPUSD=X": "GBP/USD",
-
-      // Tiền điện tử
-      "BTC-USD": "BTC",
-      "ETH-USD": "ETH",
-      "BNB-USD": "BNB",
-      "XRP-USD": "XRP",
-      "USDC-USD": "USDC",
-      "ADA-USD": "ADA",
-      "DOGE-USD": "DOGE",
-      "SOL-USD": "SOL",
-      "DOT-USD": "DOT",
-      "AVAX-USD": "AVAX",
-
-      // Kim loại & Năng lượng
-      "GC=F": "Gold",
-      "CL=F": "WTI",
-      "BZ=F": "Brent",
+      // US Stocks
+      'AAPL', 'MSFT', 'GOOGL', 'TSLA',
       
-      // Vietnamese Stocks
-      // Ngân hàng
-      "VCB.VN": "VCB",
-      "BID.VN": "BID",
-      "CTG.VN": "CTG",
-      "TCB.VN": "TCB",
-      "MBB.VN": "MBB",
+      // Indices
+      '^VNINDEX.VN', '^GSPC', '^DJI', '^IXIC',
+      
+      // Forex
+      'EURUSD=X',
+      
+      // Commodities
+      'GC=F', 'CL=F'
+    ];
 
-      // Bất động sản & đa ngành
-      "VIC.VN": "VIC",
-      "VHM.VN": "VHM",
-      "NVL.VN": "NVL",
+    // 4️⃣ Get assets from DB
+    const { rows: assets } = await pool.query(`
+      SELECT id, symbol, name, asset_type, exchange
+      FROM assets
+      WHERE symbol = ANY($1)
+      AND status = 'OK'
+    `, [displaySymbols]);
 
-      // Tiêu dùng & công nghệ
-      "VNM.VN": "VNM",
-      "FPT.VN": "FPT",
-      "MWG.VN": "MWG",
+    if (assets.length === 0) {
+      console.warn('⚠️  No assets found in database for ticker bar');
+      return res.json([]);
+    }
 
-      // Thép & vật liệu xây dựng
-      "HPG.VN": "HPG",
-      "HSG.VN": "HSG",
+    console.log(`📊 Calculating price changes for ${assets.length} assets`);
 
-      // Dầu khí & năng lượng
-      "GAS.VN": "GAS",
-      "POW.VN": "POW",
+    // 5️⃣ Calculate price change for each asset (parallel)
+    const tickerPromises = assets.map(async (asset) => {
+      try {
+        const priceData = await calculatePriceChange(
+          asset.id,
+          asset.symbol,
+          asset.asset_type
+        );
 
-      // Bán lẻ & dịch vụ lớn
-      "VRE.VN": "VRE",
-      "MSN.VN": "MSN",
-
-      // Chứng khoán & tài chính
-      "SSI.VN": "SSI",
-      "SHB.VN": "SHB",
-
-      // Vận tải & hàng không
-      "VJC.VN": "VJC"
-    };
-
-
-    const yahooData = await Promise.all(
-      Object.entries(yahooSymbols).map(async ([symbol, name]) => {
-        try {
-          const resYahoo = await axios.get(
-            `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d`
-          );
-          
-          const result = resYahoo.data.chart.result?.[0];
-          let price = result?.meta?.regularMarketPrice;
-          let prevClose = result?.meta?.chartPreviousClose;
-          const changePercent = ((price - prevClose) / prevClose) * 100;
-          
-          const instrumentType = result?.meta.instrumentType;
-          let currency = result?.meta.currency;
-
-          if (shouldConvertToVND(instrumentType) && currency !== "VND") {
-            const rate = await getExchangeRateToVND(currency);
-
-            // Nhân các giá trị cần thiết
-            price *= rate;
-            prevClose *= rate;
-          }
-
-          return {
-            symbol: symbol,
-            name,
-            price: parseFloat(price.toFixed(2)),
-            changePercent: parseFloat(changePercent.toFixed(2)),
-            positive: changePercent >= 0,
-          };
-        } catch (err) {
-          console.error(`❌ Yahoo Finance fetch failed for ${symbol}:`, err.message);
+        if (!priceData) {
+          console.warn(`⚠️  No price data for ${asset.symbol} (${asset.asset_type})`);
           return null;
         }
-      })
-    );
 
-    const validIndexes = yahooData.filter(Boolean);
-    // 5️⃣ Gộp tất cả dữ liệu
-    const mergedData = [...validIndexes];
-    
-    // 6️⃣ Lưu cache
-    cache = { data: mergedData, timestamp: Date.now() };
+        return {
+          symbol: asset.symbol.replace('^', '').replace('=X', '').replace('=F', ''),
+          name: asset.name,
+          assetType: asset.asset_type,
+          exchange: asset.exchange,
+          price: parseFloat(priceData.currentPrice.toFixed(2)),
+          changePercent: parseFloat(priceData.changePercent.toFixed(2)),
+          positive: priceData.positive
+        };
+      } catch (err) {
+        console.error(`❌ Error calculating change for ${asset.symbol}:`, err.message);
+        return null;
+      }
+    });
 
-    res.json(mergedData);
+    const results = await Promise.all(tickerPromises);
+    const validTickers = results.filter(Boolean);
+
+    console.log(`✅ Successfully calculated ${validTickers.length}/${assets.length} tickers`);
+
+    // 6️⃣ Cache result (memory + Redis)
+    cache = { data: validTickers, timestamp: Date.now() };
+
+    // Cache in Redis for distributed cache
+    await redis.setex('ticker:bar:all', 30, JSON.stringify(validTickers)).catch(err => {
+      console.error('Redis cache error:', err.message);
+    });
+
+    res.json(validTickers);
+
   } catch (error) {
     console.error("❌ Error fetching ticker data:", error.message);
-    res.status(500).json({ message: "Error fetching real market data" });
+    console.error(error.stack);
+    res.status(500).json({ message: "Error fetching ticker data from database" });
   }
 };
