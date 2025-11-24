@@ -5,6 +5,7 @@ import { useUserAuth } from '../../hooks/useUserAuth';
 import Article from '../../components/News/Article';
 import CustomLineChartStock from '../../components/Charts/CustomLineChartStock';
 import { MessageCircle, X } from 'lucide-react';
+import WatchlistSection from '../../components/News/WatchlistSection';
 import { useState } from 'react';
 import ChatPanel from '../../components/Chatbot/ChatPanel';
 
@@ -34,7 +35,8 @@ const News = () => {
                 </div>
 
                 <div className="order-2 md:order-3 col-span-1">
-                    hello
+                    <WatchlistSection />
+                    {/* hello */}
                 </div>
 
                 <div className="order-3 md:order-1 col-span-1">
