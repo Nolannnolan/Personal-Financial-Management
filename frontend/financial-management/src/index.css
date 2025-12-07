@@ -49,6 +49,7 @@
 /* Custom scrollbar style */
 .scroll-thin::-webkit-scrollbar {
   height: 6px;
+  width: 6px;
   @apply rounded-full;
 }
 

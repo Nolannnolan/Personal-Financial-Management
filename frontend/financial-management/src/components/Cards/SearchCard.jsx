@@ -53,7 +53,7 @@ const SearchCard = ({ onSearch, onReset }) => {
         <div className='grid grid-cols-2 gap-6 items-center'>
           <button
             onClick={handleApply}
-            className='add-btn add-btn-fill flex items-center justify-center gap-1.5 text-sm h-11'
+            className='add-btn add-btn-fill flex items-center justify-center gap-1.5 text-sm mt-1.5 h-12'
           >
             <i className='fa-solid fa-search text-sm'></i>
             Áp dụng
@@ -61,7 +61,7 @@ const SearchCard = ({ onSearch, onReset }) => {
 
           <button
             onClick={handleReset}
-            className='bg-slate-500 hover:bg-slate-600 text-white font-medium px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 text-sm h-11'
+            className='bg-slate-500 hover:bg-slate-600 text-white font-medium px-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 text-sm mt-1.5 h-12'
           >
             <i className="fa-solid fa-rotate-right text-sm"></i>
             Đặt lại

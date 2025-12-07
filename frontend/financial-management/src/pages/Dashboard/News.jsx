@@ -8,6 +8,7 @@ import { MessageCircle, X } from 'lucide-react';
 import WatchlistSection from '../../components/News/WatchlistSection';
 import { useState } from 'react';
 import EnhancedChatPanel from '../../components/EnhancedChatPanel';
+import SearchBar from '../../components/News/SearchBar';
 
 const News = () => {
     useUserAuth();
@@ -16,10 +17,11 @@ const News = () => {
 
     const handleChangeSymbol = (newSymbol) => {
         setSymbol(newSymbol);
+        console.log("Selected symbol in News page: ", newSymbol);
     }
   return (
-    <DashBoardLayout activeMenu="News">
-        <div className='my-5 mx-auto '>
+    <DashBoardLayout activeMenu="Tin tức">
+        <div className='my-5 mx-auto'>
             <div>
                 <h2 className='text-2xl font-semibold mb-4'>Trang Tin Tức</h2>
             </div>
@@ -29,17 +31,17 @@ const News = () => {
                 <Summary onChange = {handleChangeSymbol}/>
                 {/* Search bar */}
              </div>
-             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                <div className="order-1 md:order-2 col-span-2">
+             <div className="grid grid-cols-1 md:grid-cols-3 2xl:grid-cols-4 gap-4 mt-6">
+                <div className="order-1 2xl:order-2 md:col-span-2">
+                    <SearchBar />
                     <CustomLineChartStock symbol = {symbol}/>
                 </div>
 
-                <div className="order-2 md:order-3 col-span-1">
+                <div className="order-2 2xl:order-3 col-span-1">
                     <WatchlistSection />
-                    {/* hello */}
                 </div>
 
-                <div className="order-3 md:order-1 col-span-1">
+                <div className="order-3 md:col-span-3 2xl:order-1 2xl:col-span-1 ">
                     <Article />
                 </div>
             </div>

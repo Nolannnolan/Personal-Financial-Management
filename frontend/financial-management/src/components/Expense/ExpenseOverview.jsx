@@ -16,7 +16,7 @@ const ExpenseOverview = ({transactions, onAddExpense}) => {
       <div className = "card">
           <div className='flex items-center justify-between'>
               <div className=''>
-                  <h5 className='text-lg'>Tổng quan thu nhập bằng biểu đồ cột</h5>
+                  <h5 className='text-lg'>Tổng quan chi tiêu bằng biểu đồ cột</h5>
               </div>
 
               <button className='add-btn' onClick={onAddExpense}>

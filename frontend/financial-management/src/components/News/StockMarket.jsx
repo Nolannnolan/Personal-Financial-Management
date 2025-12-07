@@ -47,7 +47,7 @@ const StockMarket = ({ children, symbol }) => {
 
   return (
     <>
-      <div className="mt-6">{children}</div>
+      <div className="">{children}</div>
       <div className="card">
         {/* Các thông tin chi tiết */}
         <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">

@@ -142,10 +142,22 @@ exports.getCandles = async (req, res) => {
       if (cached && Array.isArray(cached) && cached.length > 0) {
         // Return last N candles from cache
         const cachedCandles = cached.slice(-limit);
+        
+        // Calculate change percent: (last close - first open) / first open * 100
+        let changePercent = null;
+        if (cachedCandles.length > 0) {
+          const firstOpen = cachedCandles[0].open;
+          const lastClose = cachedCandles[cachedCandles.length - 1].close;
+          if (firstOpen !== 0) {
+            changePercent = parseFloat(((lastClose - firstOpen) / firstOpen * 100).toFixed(2));
+          }
+        }
+        
         return res.json({ 
           symbol, 
           timeframe, 
           count: cachedCandles.length,
+          changePercent,
           candles: cachedCandles, 
           source: 'cache' 
         });
@@ -216,6 +228,7 @@ exports.getCandles = async (req, res) => {
         timeframe, 
         table,
         count: 0,
+        changePercent: null,
         candles: [],
         source: 'db',
         message: 'No data available for this timeframe',
@@ -240,6 +253,16 @@ exports.getCandles = async (req, res) => {
     // Reverse to get oldest → newest (TradingView standard)
     candles.reverse();
 
+    // Calculate change percent: (last close - first open) / first open * 100
+    let changePercent = null;
+    if (candles.length > 0) {
+      const firstOpen = candles[0].open;
+      const lastClose = candles[candles.length - 1].close;
+      if (firstOpen !== 0) {
+        changePercent = parseFloat(((lastClose - firstOpen) / firstOpen * 100).toFixed(2));
+      }
+    }
+
     // Cache if no time range specified by user (use original params)
     if (!startParam && !endParam && candles.length > 0) {
       const cacheTTL = timeframe === '1m' ? 30 :
@@ -259,6 +282,7 @@ exports.getCandles = async (req, res) => {
       timeframe, 
       table,
       count: candles.length,
+      changePercent,
       candles, 
       source: 'db',
       cutoffTime: maxTs.toISOString()

@@ -106,7 +106,7 @@ const Home = () => {
     return () => {}
   }, []);
   return (
-    <DashBoardLayout activeMenu="Dashboard">
+    <DashBoardLayout activeMenu="Trang chủ">
       <div className='my-5 mx-auto'>
         <SearchCard onSearch={handleSearch} onReset={handleReset} />
         <div className = "grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -234,7 +234,7 @@ const Expense = () => {
   }, [])
   return (
 
-    <DashBoardLayout activeMenu="Expense">
+    <DashBoardLayout activeMenu="Chi tiêu">
       <div className='my-5 mx-auto'>
         <SearchCard onSearch={handleSearch} onReset={handleReset} />
         <div className = "grid grid-cols-1 gap-6">

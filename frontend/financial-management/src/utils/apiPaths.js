@@ -42,6 +42,9 @@ export const API_PATHS = {
     VN_GAINERS: "/api/v1/market/vn-gainers",
     VN_LOSERS: "/api/v1/market/vn-losers",
   },
+  PRICE: {
+    GET_CANDLES: "/api/v1/price/candles",
+  },
   ASSETS: {
     SEARCH: "/api/v1/assets",
   },

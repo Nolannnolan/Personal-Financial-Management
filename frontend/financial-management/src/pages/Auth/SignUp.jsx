@@ -3,7 +3,6 @@ import AuthLayout from '../../components/layouts/AuthLayout'
 import { Link } from 'react-router-dom'
 import Input from '../../components/Inputs/Input'
 import { validateEmail, validatePassword } from '../../utils/helper'
-import ProfilePhotoSelector from '../../components/Inputs/ProfilePhotoSelector'
 import axiosInstance from '../../utils/axiosInstance'
 import { API_PATHS } from '../../utils/apiPaths'
 import { UserContext } from '../../context/UserContext'
@@ -71,9 +70,6 @@ const SignUp = () => {
           Tham gia với chúng tôi bằng cách nhập thông tin của bạn bên dưới.
         </p>
         <form onSubmit={handleSignUp}>
-
-          <ProfilePhotoSelector image={profilePic} setImage={setProfilePic}></ProfilePhotoSelector>
-
           <div className='grid gird-cols-1 md:grid-cols-2 gap-4'>
             <Input
               value = {fullName}

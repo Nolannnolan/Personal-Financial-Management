@@ -24,7 +24,7 @@ const SideMenu = ({activeMenu}) => {
         setShowLogoutModal(false);
     }
   return (
-  <div className='w-64 h-[calc(100vh-61px)] bg-white boder-r border-gray-200/50 p-5 sticky top-[61px] z-20'>
+  <div className='w-64 h-[calc(100vh-61px)] bg-white border-r border-gray-200/50 p-5 sticky top-[61px] z-20 shadow-2xl'>
     <div className='flex flex-col items-center mb-7 mt-3 gap-3 justify-center'>
       <h5 className='text-gray-950 text-xl font-semibold leading-6'>{user?.fullName || ""}</h5>
     </div>
@@ -33,7 +33,7 @@ const SideMenu = ({activeMenu}) => {
       <button
         key={`menu_${index}`}
         className={`w-full flex items-center gap-4 text-[15px] font-medium ${
-          activeMenu == item.label ? "text-white bg-primary" : ""
+          activeMenu === item.label ? "text-white bg-primary" : ""
         } py-3 px-6 rounded-lg mb-3`}
         onClick={() => handleClick(item.path)}
       >
