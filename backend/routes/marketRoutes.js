@@ -10,13 +10,17 @@ const {
   getMarketStats,
   getTickerDetail,
   getVNGainers,
-  getVNLosers
+  getVNLosers,
+  getTickerSummary
 } = require('../controllers/marketController');
 
 const router = express.Router();
 
 // Single ticker with 24h stats
 router.get('/ticker', getTicker);
+
+// Ticker summary (formatted for specific UI requirements)
+router.get('/summary', getTickerSummary);
 
 // Detailed ticker with historical performance
 router.get('/ticker-detail', getTickerDetail);

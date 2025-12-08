@@ -15,126 +15,157 @@ async function calculate24hStats(symbol) {
   try {
     // Get asset info first
     const assetInfo = await pool.query(
-      'SELECT id, asset_type FROM assets WHERE symbol = $1',
+      'SELECT id, asset_type, exchange FROM assets WHERE symbol = $1',
       [symbol]
     );
     
     if (assetInfo.rows.length === 0) return null;
     
-    const assetId = assetInfo.rows[0].id;
-    const assetType = assetInfo.rows[0].asset_type;
+    const { id: assetId, asset_type: assetType, exchange } = assetInfo.rows[0];
+    const isCrypto = assetType === 'crypto' || (exchange && exchange.toUpperCase() === 'BINANCE');
     
-    // Try price_ticks first (for crypto with real-time data)
-    // WITH TIME RANGE FILTER to avoid scanning entire history
-    const ticksQuery = `
-      WITH current AS (
-        SELECT price, ts FROM price_ticks 
-        WHERE asset_id = $1 
-        ORDER BY ts DESC 
-        LIMIT 1
-      ),
-      day_ago_ticks AS (
-        SELECT price FROM price_ticks 
-        WHERE asset_id = $1 
-        AND ts <= NOW() - INTERVAL '24 hours'
-        AND ts >= NOW() - INTERVAL '30 days'
-        ORDER BY ts DESC 
-        LIMIT 1
-      ),
-      day_ago_ohlcv AS (
-        SELECT open as price FROM price_ohlcv
-        WHERE asset_id = $1
-        AND ts <= NOW() - INTERVAL '24 hours'
-        ORDER BY ts DESC
-        LIMIT 1
-      ),
-      stats_24h AS (
-        SELECT 
-          MAX(price) as high,
-          MIN(price) as low,
-          SUM(volume) as vol
-        FROM price_ticks
-        WHERE asset_id = $1
-        AND ts >= NOW() - INTERVAL '24 hours'
-      )
-      SELECT 
-        current.price as current_price,
-        current.ts,
-        COALESCE(day_ago_ticks.price, day_ago_ohlcv.price) as price_24h_ago,
-        stats_24h.high as high_24h,
-        stats_24h.low as low_24h,
-        stats_24h.vol as volume_24h
-      FROM current
-      LEFT JOIN day_ago_ticks ON true
-      LEFT JOIN day_ago_ohlcv ON true
-      LEFT JOIN stats_24h ON true
+    // OPTIMIZATION 1: Time-Boxing
+    // Chỉ tìm tick trong 7 ngày gần nhất. Nếu cũ hơn thì coi như không có dữ liệu live.
+    // Giúp TimescaleDB không phải scan toàn bộ lịch sử hàng chục triệu dòng.
+    const tickQuery = `
+      SELECT price, ts, volume 
+      FROM price_ticks 
+      WHERE asset_id = $1 
+      AND ts > NOW() - INTERVAL '7 days' 
+      ORDER BY ts DESC 
+      LIMIT 1
     `;
-    
-    if (assetType === 'crypto') {
-      const ticksResult = await pool.query(ticksQuery, [assetId]);
-    
-      if (ticksResult.rows[0]?.current_price) {
-      const data = ticksResult.rows[0];
-      const currentPrice = parseFloat(data.current_price);
-      const basePrice = parseFloat(data.price_24h_ago || data.current_price);
-      const change = currentPrice - basePrice;
-      const changePercent = basePrice > 0 ? (change / basePrice) * 100 : 0;
+
+    // 2. Logic Branching based on Asset Type
+    if (isCrypto) {
+      // === CRYPTO LOGIC (BINANCE) ===
+      // Chạy song song lấy tick mới nhất và thống kê 24h
+      
+      const cryptoStatsQuery = `
+        WITH old_tick AS (
+          SELECT price FROM price_ticks 
+          WHERE asset_id = $1 
+          AND ts <= NOW() - INTERVAL '24 hours'
+          AND ts > NOW() - INTERVAL '25 hours' -- Optimization: Limit scan range
+          ORDER BY ts DESC LIMIT 1
+        ),
+        stats AS (
+          SELECT MAX(price) as high, MIN(price) as low, SUM(volume) as vol
+          FROM price_ticks
+          WHERE asset_id = $1 
+          AND ts >= NOW() - INTERVAL '24 hours'
+        )
+        SELECT old_tick.price as price_old, stats.high, stats.low, stats.vol
+        FROM stats
+        LEFT JOIN old_tick ON true
+      `;
+      
+      // Parallel Execution
+      const [tickResult, statsRes] = await Promise.all([
+        pool.query(tickQuery, [assetId]),
+        pool.query(cryptoStatsQuery, [assetId])
+      ]);
+
+      const latestTick = tickResult.rows[0];
+      const stats = statsRes.rows[0] || {};
+      
+      // If no tick data at all, return null
+      if (!latestTick) return null;
+
+      const currentPrice = parseFloat(latestTick.price);
+      const prevPrice = parseFloat(stats.price_old || currentPrice); 
       
       return {
         current_price: currentPrice,
-        price_24h_ago: basePrice,
-        change_24h: change,
-        change_percent_24h: changePercent,
-        high_24h: parseFloat(data.high_24h || currentPrice),
-        low_24h: parseFloat(data.low_24h || currentPrice),
-        volume_24h: parseFloat(data.volume_24h || 0),
-        ts: data.ts
+        price_24h_ago: prevPrice,
+        change_24h: currentPrice - prevPrice,
+        change_percent_24h: prevPrice > 0 ? ((currentPrice - prevPrice) / prevPrice) * 100 : 0,
+        high_24h: parseFloat(stats.high || currentPrice),
+        low_24h: parseFloat(stats.low || currentPrice),
+        volume_24h: parseFloat(stats.vol || 0),
+        ts: latestTick.ts
       };
+      
+    } else {
+      // === STOCK/INDEX LOGIC (HOSE, US, etc.) ===
+      
+      // OPTIMIZATION: Limit OHLCV scan to 30 days
+      const ohlcvQuery = `
+        SELECT close, ts, open, high, low, volume
+        FROM price_ohlcv
+        WHERE asset_id = $1
+        AND ts > NOW() - INTERVAL '30 days'
+        ORDER BY ts DESC
+        LIMIT 2
+      `;
+
+      // OPTIMIZATION 2: Parallel Execution
+      // Chạy cả 2 query cùng lúc vì Stock cần cả Tick (giá live) và OHLCV (giá tham chiếu)
+      const [tickResult, ohlcvResult] = await Promise.all([
+        pool.query(tickQuery, [assetId]),
+        pool.query(ohlcvQuery, [assetId])
+      ]);
+
+      const latestTick = tickResult.rows[0];
+      const ohlcv = ohlcvResult.rows; // [latest, previous]
+
+      let currentPrice, ts, prevClose, high, low, volume, open;
+
+      if (latestTick) {
+        // Case A: Have Real-time Tick Data
+        currentPrice = parseFloat(latestTick.price);
+        ts = latestTick.ts;
+        volume = parseFloat(latestTick.volume); 
+        
+        if (ohlcv.length > 0) {
+          const tickDate = new Date(ts).toDateString();
+          const ohlcvDate = new Date(ohlcv[0].ts).toDateString();
+          
+          if (tickDate === ohlcvDate) {
+            // Tick cùng ngày với nến OHLCV mới nhất -> Lấy nến hôm qua làm tham chiếu
+            prevClose = ohlcv[1] ? parseFloat(ohlcv[1].close) : parseFloat(ohlcv[0].open);
+            high = parseFloat(ohlcv[0].high);
+            low = parseFloat(ohlcv[0].low);
+            open = parseFloat(ohlcv[0].open);
+          } else {
+            // Tick mới hơn nến OHLCV -> Lấy nến mới nhất làm tham chiếu
+            prevClose = parseFloat(ohlcv[0].close);
+            high = currentPrice; 
+            low = currentPrice; 
+            open = currentPrice;
+          }
+        } else {
+          prevClose = currentPrice;
+          high = currentPrice; low = currentPrice; open = currentPrice;
+        }
+      } else {
+        // Case B: No Tick Data (Fallback to OHLCV)
+        if (ohlcv.length === 0) return null;
+        
+        const latest = ohlcv[0];
+        const prev = ohlcv[1] || latest;
+        
+        currentPrice = parseFloat(latest.close);
+        ts = latest.ts;
+        prevClose = parseFloat(prev.close);
+        high = parseFloat(latest.high);
+        low = parseFloat(latest.low);
+        open = parseFloat(latest.open);
+        volume = parseFloat(latest.volume);
       }
+
+      return {
+        current_price: currentPrice,
+        price_24h_ago: prevClose,
+        change_24h: currentPrice - prevClose,
+        change_percent_24h: prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0,
+        high_24h: high,
+        low_24h: low,
+        volume_24h: volume,
+        open: open,
+        ts: ts
+      };
     }
-    
-    // Fallback to price_ohlcv (for stocks/indexes)
-    // Get last 2 days to compare
-    // WITH TIME RANGE FILTER to avoid "out of shared memory"
-    const ohlcvQuery = `
-      SELECT 
-        close,
-        open,
-        high,
-        low,
-        volume,
-        ts
-      FROM price_ohlcv
-      WHERE asset_id = $1
-      AND ts >= NOW() - INTERVAL '30 days'
-      ORDER BY ts DESC
-      LIMIT 2
-    `;
-    
-    const ohlcvResult = await pool.query(ohlcvQuery, [assetId]);
-    
-    if (ohlcvResult.rows.length === 0) return null;
-    
-    const latest = ohlcvResult.rows[0];
-    const previous = ohlcvResult.rows[1] || latest;
-    
-    // For stocks: calculate change from previous close to latest close
-    const currentPrice = parseFloat(latest.close);
-    const previousClose = parseFloat(previous.close);
-    const change = currentPrice - previousClose;
-    const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
-    
-    return {
-      current_price: currentPrice,
-      price_24h_ago: previousClose,
-      change_24h: change,
-      change_percent_24h: changePercent,
-      high_24h: parseFloat(latest.high),
-      low_24h: parseFloat(latest.low),
-      volume_24h: parseFloat(latest.volume),
-      open: parseFloat(latest.open),
-      ts: latest.ts
-    };
     
   } catch (err) {
     console.error(`calculate24hStats error for ${symbol}:`, err.message);
@@ -798,6 +829,140 @@ exports.getTickerDetail = async (req, res) => {
     
   } catch (err) {
     console.error('getTickerDetail error:', err);
+    res.status(500).json({ error: 'failed', message: err.message });
+  }
+};
+
+/**
+ * Helper: Check if market is open
+ */
+function isMarketOpen(exchange) {
+  if (!exchange) return false;
+  const ex = exchange.toUpperCase();
+  
+  if (ex === 'BINANCE') return true;
+  
+  const now = new Date();
+  
+  if (ex === 'HOSE') {
+    // Vietnam Time (UTC+7)
+    const options = { timeZone: 'Asia/Ho_Chi_Minh', hour12: false, weekday: 'short', hour: 'numeric', minute: 'numeric' };
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+    const parts = formatter.formatToParts(now);
+    const partMap = {};
+    parts.forEach(p => partMap[p.type] = p.value);
+    
+    if (partMap.weekday === 'Sat' || partMap.weekday === 'Sun') return false;
+    
+    const h = parseInt(partMap.hour, 10);
+    const m = parseInt(partMap.minute, 10);
+    const time = h * 100 + m;
+    
+    // 09:00 - 11:30
+    if (time >= 900 && time <= 1130) return true;
+    // 13:00 - 14:45
+    if (time >= 1300 && time <= 1445) return true;
+    
+    return false;
+  }
+  
+  // Default: US Market (NYSE/NASDAQ)
+  // Eastern Time
+  const options = { timeZone: 'America/New_York', hour12: false, weekday: 'short', hour: 'numeric', minute: 'numeric' };
+  const formatter = new Intl.DateTimeFormat('en-US', options);
+  const parts = formatter.formatToParts(now);
+  const partMap = {};
+  parts.forEach(p => partMap[p.type] = p.value);
+  
+  if (partMap.weekday === 'Sat' || partMap.weekday === 'Sun') return false;
+  
+  const h = parseInt(partMap.hour, 10);
+  const m = parseInt(partMap.minute, 10);
+  const time = h * 100 + m;
+  
+  // 09:30 - 16:00
+  return time >= 930 && time < 1600;
+}
+
+/**
+ * Helper: Format date to "HH:mm d Thg M UTC+07:00"
+ */
+function formatLastUpdate(date) {
+  if (!date) return '';
+  
+  // Convert to UTC+7
+  const vnTime = new Date(new Date(date).getTime() + 7 * 60 * 60 * 1000);
+  
+  const h = vnTime.getUTCHours().toString().padStart(2, '0');
+  const m = vnTime.getUTCMinutes().toString().padStart(2, '0');
+  const d = vnTime.getUTCDate();
+  const mo = vnTime.getUTCMonth() + 1;
+  
+  return `${h}:${m} ${d} Thg ${mo} UTC+07:00`;
+}
+
+/**
+ * GET /api/v1/market/summary?symbol=^VNI
+ * Get ticker summary with specific formatting
+ */
+exports.getTickerSummary = async (req, res) => {
+  const symbol = (req.query.symbol || '').toUpperCase();
+  
+  if (!symbol) {
+    return res.status(400).json({ error: 'symbol required' });
+  }
+  
+  try {
+    // Get asset info
+    const assetQuery = await pool.query(
+      'SELECT id, symbol, name, exchange, asset_type FROM assets WHERE symbol = $1',
+      [symbol]
+    );
+    
+    if (assetQuery.rows.length === 0) {
+      return res.status(404).json({ error: 'Asset not found' });
+    }
+    
+    const asset = assetQuery.rows[0];
+    const exchange = asset.exchange ? asset.exchange.toUpperCase() : 'US';
+    
+    // Calculate stats
+    const stats = await calculate24hStats(symbol);
+    
+    const currency = exchange === 'HOSE' ? 'VND' : 'USD';
+    const priceFormatter = new Intl.NumberFormat('vi-VN', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
+    
+    if (!stats) {
+      return res.json({
+        name: asset.name,
+        symbol: asset.symbol,
+        priceNow: "0,00",
+        changeNow: 0,
+        percentChangeNow: 0,
+        isMarketOpen: isMarketOpen(exchange),
+        lastUpdate: formatLastUpdate(new Date()),
+        currency: currency
+      });
+    }
+    
+    const response = {
+      name: asset.name,
+      symbol: asset.symbol,
+      priceNow: priceFormatter.format(stats.current_price),
+      changeNow: parseFloat(stats.change_24h.toFixed(2)),
+      percentChangeNow: parseFloat(stats.change_percent_24h.toFixed(2)),
+      isMarketOpen: isMarketOpen(exchange),
+      lastUpdate: formatLastUpdate(stats.ts),
+      currency: currency
+    };
+    
+    res.json(response);
+    
+  } catch (err) {
+    console.error('getTickerSummary error:', err);
     res.status(500).json({ error: 'failed', message: err.message });
   }
 };
