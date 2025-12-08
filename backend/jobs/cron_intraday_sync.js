@@ -36,31 +36,38 @@ function scheduleCryptoSync() {
  * Sync stock/forex intraday data (Yahoo Finance)
  * Runs every 15 minutes during market hours
  * Now includes VN stocks (.VN symbols)
+ * 
+ * Market hours covered:
+ * - VN: 9:00-15:00 VN time = 2:00-8:00 UTC
+ * - US: 9:30-16:00 EST = 14:30-21:00 UTC
  */
 function scheduleStockSync() {
   // Every 15 minutes
   cron.schedule('*/15 * * * *', async () => {
-    const hour = new Date().getHours();
+    const now = new Date();
+    const utcHour = now.getUTCHours();
     
-    // Only sync during typical trading hours (9 AM - 5 PM)
-    // Adjust for your timezone
-    if (hour < 9 || hour > 17) {
-      console.log('⏭️ [CRON] Stock sync skipped (outside market hours)');
+    // Cover both VN market (2-8 UTC) and US market (14-21 UTC)
+    const isVNMarketHours = utcHour >= 2 && utcHour <= 8;
+    const isUSMarketHours = utcHour >= 14 && utcHour <= 21;
+    
+    if (!isVNMarketHours && !isUSMarketHours) {
+      console.log('⏭️ [CRON] Stock sync skipped (outside market hours: VN 2-8 UTC, US 14-21 UTC)');
       return;
     }
 
-    console.log('\n⏰ [CRON] Starting stock intraday sync...');
+    console.log('\n⏰ [CRON] Starting stock intraday sync (1m candles)...');
     try {
-      // Fetch 5m candles for last 1 day
+      // Fetch 1m candles for last 1 day (thay vì 5m)
       // Increased limit to 500 to include VN stocks (386 VN + other stocks)
-      await syncAllStockIntraday('5m', '1d', 500);
-      console.log('✅ [CRON] Stock sync completed');
+      await syncAllStockIntraday('1m', '1d', 500);
+      console.log('✅ [CRON] Stock sync completed (1m candles)');
     } catch (err) {
       console.error('❌ [CRON] Stock sync failed:', err.message);
     }
   });
 
-  console.log('✅ Stock intraday sync scheduled (every 15 minutes, includes VN stocks)');
+  console.log('✅ Stock intraday sync scheduled (every 15 minutes, 1m candles, VN + US markets)');
 }
 
 /**
@@ -77,9 +84,10 @@ function scheduleHourlyDeepSync() {
       console.log('📊 Syncing crypto (1m, 500 candles)...');
       await syncAllCryptoIntraday('1m', 500);
       
-      // Stocks: fetch last 5 days of 5m data (includes VN stocks)
-      console.log('📊 Syncing stocks (5m, 5 days)...');
-      await syncAllStockIntraday('5m', '5d', 500);
+      // Stocks: fetch 1m candles for 1 day (thay vì 5m, 5d)
+      // Yahoo 1m data chỉ hỗ trợ tối đa 7 ngày
+      console.log('📊 Syncing stocks (1m, 1 day)...');
+      await syncAllStockIntraday('1m', '1d', 500);
       
       console.log('✅ [CRON] Hourly deep sync completed');
     } catch (err) {
@@ -87,7 +95,7 @@ function scheduleHourlyDeepSync() {
     }
   });
 
-  console.log('✅ Hourly deep sync scheduled');
+  console.log('✅ Hourly deep sync scheduled (1m candles for all assets)');
 }
 
 /**
@@ -114,8 +122,8 @@ async function runImmediateSync() {
     console.log('1️⃣ Syncing crypto (1m, 200 candles)...');
     await syncAllCryptoIntraday('1m', 200);
     
-    console.log('\n2️⃣ Syncing stocks (5m, 1 day, 50 assets)...');
-    await syncAllStockIntraday('5m', '1d', 50);
+    console.log('\n2️⃣ Syncing stocks (1m, 1 day, 50 assets)...');
+    await syncAllStockIntraday('1m', '1d', 50);
     
     console.log('\n✅ Immediate sync completed');
   } catch (err) {

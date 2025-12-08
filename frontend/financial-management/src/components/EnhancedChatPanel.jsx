@@ -21,7 +21,7 @@ const EnhancedChatPanel = () => {
   // Messages
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [model, setModel] = useState('gemini-2.5-flash');
+  const [model, setModel] = useState('google/gemini-2.5-flash');
   
   // UI states
   const [loadingConversations, setLoadingConversations] = useState(false);
@@ -273,8 +273,8 @@ const EnhancedChatPanel = () => {
               className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border-0 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/50 disabled:opacity-50 bg-white/90 text-gray-800 truncate"
               disabled={isStreaming}
             >
-              <option value="gemini-2.5-flash">Gemini Flash</option>
-              <option value="gemini-2.5-pro">Gemini Pro</option>
+              <option value="google/gemini-2.5-flash">Gemini Flash</option>
+              <option value="google/gemini-2.5-pro">Gemini Pro</option>
             </select>
             {currentConversation && (
               <span className="text-xs sm:text-sm text-white/90 truncate hidden sm:inline-block max-w-[150px] md:max-w-[200px]">

@@ -21,6 +21,8 @@ const assetsRoutes = require('./routes/assetsRoutes');
 const priceRoutes = require('./routes/priceRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const marketRoutes = require('./routes/marketRoutes');
+const conversationRoutes = require('./routes/conversationRoutes');
+const messageRoutes = require('./routes/messageRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -50,6 +52,8 @@ app.use('/api/v1/assets', assetsRoutes);
 app.use('/api/v1/price', priceRoutes);
 app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/market', marketRoutes);
+app.use('/api/v1/conversations', conversationRoutes);
+app.use('/api/v1/conversations', messageRoutes); // Messages are nested under conversations
 
 const debugRoutes = require("./routes/debug");
 app.use("/debug", debugRoutes);
@@ -57,7 +61,7 @@ app.use("/debug", debugRoutes);
 // Server uploads folder
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 
 server.listen(PORT, () => {
     console.log(`\n${'='.repeat(60)}`);
