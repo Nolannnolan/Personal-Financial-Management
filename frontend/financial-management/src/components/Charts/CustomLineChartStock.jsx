@@ -7,12 +7,12 @@ import axiosInstance from "../../utils/axiosInstance";
 import { API_PATHS } from "../../utils/apiPaths";
 import moment from "moment";
 
-const CustomLineChartStock = ({symbol}) => {
+const CustomLineChartStock = ({symbol, onAddToWatchlist}) => {
   const [selectedRange, setSelectedRange] = useState('1D');
   const [chartData, setChartData] = useState([]);
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(false);
-
+  
   // Time range mapping
   const TIME_RANGE_LABELS = {
     '1D': '1 NGÀY QUA',
@@ -115,19 +115,22 @@ const CustomLineChartStock = ({symbol}) => {
       setChartData(formattedData);
 
       // Calculate changeByTime and percentChangeByTime from candles
-      if (summaryData && candles.length > 0) {
+      if (candles.length > 0) {
         const firstPrice = candles[0].close;
         const lastPrice = candles[candles.length - 1].close;
         const changeByTime = lastPrice - firstPrice;
         const percentChangeByTime = (changeByTime / firstPrice) * 100;
 
-        // Update summary data with calculated values
-        setSummaryData({
-          ...summaryData,
-          changeByTime: changeByTime,
-          percentChangeByTime: percentChangeByTime,
-          time: selectedRange,
-          timeRange: TIME_RANGE_LABELS[selectedRange]
+        // Update summary data with calculated values using callback to avoid dependency
+        setSummaryData(prevData => {
+          if (!prevData) return null;
+          return {
+            ...prevData,
+            changeByTime: changeByTime,
+            percentChangeByTime: percentChangeByTime,
+            time: selectedRange,
+            timeRange: TIME_RANGE_LABELS[selectedRange]
+          };
         });
       }
 
@@ -242,7 +245,7 @@ const CustomLineChartStock = ({symbol}) => {
 
   return (
     <StockMarket symbol={symbol}>
-      {summaryData && <TitleStock data={summaryData}/>}
+      {summaryData && <TitleStock data={summaryData} onAddToWatchlist={onAddToWatchlist}/>}
       
       {/* Time Range Filter Buttons */}
       <div className="card my-4">
