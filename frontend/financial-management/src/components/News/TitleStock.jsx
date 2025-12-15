@@ -1,7 +1,13 @@
 import React from 'react'
 import { addThousandsSeperator } from '../../utils/helper'
 
-const TitleStock = ({ data }) => {
+const TitleStock = ({ data, onAddToWatchlist }) => {
+  const handleAddToWatchlist = () => {
+    if (onAddToWatchlist && data) {
+      onAddToWatchlist(data)
+    }
+  }
+
   return (
     <div className="card flex flex-col sm:flex-row sm:items-start gap-4 mt-0">
       {/* --- LEFT: Name + Price --- */}
@@ -16,7 +22,10 @@ const TitleStock = ({ data }) => {
 
       {/* --- RIGHT: Info section --- */}
       <div className="mt-4 sm:mt-0 flex flex-col items-start gap-6 text-sm text-gray-600">
-        <button className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-full font-medium shadow-sm">
+        <button 
+          onClick={handleAddToWatchlist}
+          className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-full font-medium shadow-sm hover:cursor-pointer transition-colors"
+        >
           + Danh sách theo dõi
         </button>
 
