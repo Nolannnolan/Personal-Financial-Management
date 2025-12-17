@@ -9,19 +9,28 @@ export const useUserAuth = () => {
     useEffect(() => {
         if(user) return;
 
+        const token = localStorage.getItem("token");
+        if (!token) {
+            clearUser();
+            navigate("/login");
+            return;
+        }
+
         let isMounted = true; // To prevent state updates if the component is unmounted
 
         const fetchUserInfo = async () => {
             try{
-                const response = await axiosInstance.get(API_PATHS.AUTH.USER_INFO);
+                const response = await axiosInstance.get(API_PATHS.AUTH.GET_USER_INFO);
                 if (response.data && isMounted) {
                     updateUser(response.data);
                 }
             }catch(error){
                 console.error("Error fetching user info:", error);
                 if(isMounted){
-                    clearUser();
-                    navigate("/login");
+                    if (error.response && error.response.status === 401) {
+                        clearUser();
+                        navigate("/login");
+                    }
                 }
             }
         };
@@ -30,5 +39,5 @@ export const useUserAuth = () => {
         return () => {
             isMounted = false;
         };
-    }, [updateUser, clearUser, navigate]);
+    }, [updateUser, clearUser, navigate, user]);
 };                                                                                          
