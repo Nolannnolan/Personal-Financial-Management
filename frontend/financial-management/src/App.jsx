@@ -3,6 +3,8 @@ import React from 'react'
 import SignUp from './pages/Auth/SignUp'
 import Home from './pages/Dashboard/Home'
 import Login from './pages/Auth/Login'
+import ForgotPassword from './pages/Auth/ForgotPassword'
+import ResetPassword from './pages/Auth/ResetPassword'
 import Income from './pages/Dashboard/Income'
 import Expense from './pages/Dashboard/Expense'
 import UserProvider from './context/UserContext'
@@ -19,6 +21,8 @@ function App() {
             <Route path='/' element={<Root />} />
             <Route path='/login' element={<Login />} />
             <Route path='/signUp' element={<SignUp />} />
+            <Route path='/forgot-password' element={<ForgotPassword />} />
+            <Route path='/reset-password/:token' element={<ResetPassword />} />
             <Route path='/income' element={<Income />} />
             <Route path='/expense' element={<Expense />} />
             <Route path='/news' element={<News />} />

@@ -78,6 +78,12 @@ const handleLogin = async (e) => {
             type = "password"
           ></Input>
 
+          <div className="flex justify-end mb-4">
+            <Link to="/forgot-password" className="text-sm text-primary underline">
+              Quên mật khẩu?
+            </Link>
+          </div>
+
           {error && <p className='text-red-500 text-xs pb-2.5'>{error}</p>}
 
           <button type = "submit" className = "btn-primary">ĐĂNG NHẬP</button>

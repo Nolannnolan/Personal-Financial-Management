@@ -4,6 +4,9 @@ const {
     registerUser,
     loginUser,
     getUseInfo,
+    forgotPassword,
+    resetPassword,
+    validateResetToken,
 } = require('../controllers/authController');
 const upload = require('../middleware/uploadMiddleware');
 
@@ -12,6 +15,9 @@ const router = express.Router();
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.get('/getUser', protect, getUseInfo);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password/:resetToken', resetPassword);
+router.get('/reset-password/:resetToken', validateResetToken);
 
 router.post('/upload-image', upload.single('image'), (req, res) => {
     if(!req.file){
