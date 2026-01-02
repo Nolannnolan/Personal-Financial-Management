@@ -23,11 +23,11 @@ const healthRoutes = require('./routes/healthRoutes');
 const marketRoutes = require('./routes/marketRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
 const messageRoutes = require('./routes/messageRoutes');
+const predictionRoutes = require('./routes/predictionRoutes');
 
 const app = express();
 const server = http.createServer(app);
 
-// Middleware to handle CORS
 app.use(
     cors({
         origin: process.env.CLIENT_URL || "*",
@@ -53,7 +53,8 @@ app.use('/api/v1/price', priceRoutes);
 app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/market', marketRoutes);
 app.use('/api/v1/conversations', conversationRoutes);
-app.use('/api/v1/conversations', messageRoutes); // Messages are nested under conversations
+app.use('/api/v1/conversations', messageRoutes);
+app.use('/api/v1/prediction', predictionRoutes);
 
 const debugRoutes = require("./routes/debug");
 app.use("/debug", debugRoutes);
@@ -68,7 +69,6 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server started on port ${PORT} (accessible from network)`);
     console.log(`${'='.repeat(60)}\n`);
 
-    // Start Frontend WebSocket server (with room subscriptions)
     try {
       startFrontendWebSocket(server);
       console.log('✅ Frontend WebSocket ready at ws://localhost:' + PORT + '/ws/prices\n');
@@ -76,33 +76,29 @@ server.listen(PORT, '0.0.0.0', () => {
       console.error('Failed to start Frontend WebSocket:', err);
     }
 
-    // Start Binance realtime stream
-    try {
-      startBinanceStreamAll();
-    } catch (err) {
-      console.error('Failed to start Binance stream:', err);
-    }
+    // try {
+    //   startBinanceStreamAll();
+    // } catch (err) {
+    //   console.error('Failed to start Binance stream:', err);
+    // }
 
-    // Start intraday sync cron jobs
-    try {
-      startIntradaySyncJobs();
-    } catch (err) {
-      console.error('Failed to start intraday sync jobs:', err);
-    }
+    // try {
+    //   startIntradaySyncJobs();
+    // } catch (err) {
+    //   console.error('Failed to start intraday sync jobs:', err);
+    // }
 
-    // Start alert monitoring
-    try {
-      startAlertMonitoring(10); // Check every 10 minutes
-    } catch (err) {
-      console.error('Failed to start alert monitoring:', err);
-    }
+    // try {
+    //   startAlertMonitoring(10); // Check every 10 minutes
+    // } catch (err) {
+    //   console.error('Failed to start alert monitoring:', err);
+    // }
 
-    // Start daily OHLCV sync jobs
-    try {
-      startDailySyncJobs();
-    } catch (err) {
-      console.error('Failed to start daily OHLCV sync:', err);
-    }
+    // try {
+    //   startDailySyncJobs();
+    // } catch (err) {
+    //   console.error('Failed to start daily OHLCV sync:', err);
+    // }
 
     console.log(`${'='.repeat(60)}`);
     console.log('✅ All services started successfully');

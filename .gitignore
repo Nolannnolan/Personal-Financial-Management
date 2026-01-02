@@ -103,7 +103,6 @@ dist-ssr/
 build/
 *.local
 
-/ai/
 /test/
 *.lock
 *.index
